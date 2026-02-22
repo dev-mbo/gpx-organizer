@@ -90,3 +90,6 @@ typings/
 
 # Electron-Forge
 out/
+
+# Gpx Folder
+src/public/gpx/
