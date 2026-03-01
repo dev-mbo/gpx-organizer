@@ -13,8 +13,9 @@ import 'ol/ol.css'
 export default {
     data() {
       return {
-        files: {},
+        gpxFiles: {},
         selectedFile: null,
+        metadata: false,
         map: null,
         gpxLayer: null,
         style: {
@@ -28,8 +29,12 @@ export default {
       }
     },
     methods: {
+      async getMetadata(file) {
+        this.metadata = await gpx.getMetadata(file);
+        console.log(this.metadata);
+      },
       async getFiles() {
-	      this.files = await gpx.getFiles();
+	      this.gpxFiles = await gpx.getFiles();
       },
       async selectFile(dir, file) {
         this.selectedFile = dir + '/' + file;
@@ -39,12 +44,13 @@ export default {
         }
         this.gpxLayer = new VectorLayer({
           source: new VectorSource({
-            url: `${this.selectedFile}`,
+            url: this.selectedFile,
             format: new GPX()
           }),
           style: (feature) => this.style[feature.getGeometry().getType()]                   
         });
         this.map.addLayer(this.gpxLayer);
+        await this.getMetadata(this.selectedFile);
       },
     },
     async mounted() {
@@ -62,25 +68,73 @@ export default {
           constrainResolution: true
         }),
       });
-      if (Object.keys(this.files).length) {
-        const dir = Object.keys(this.files)[0];
-        this.selectFile(this.files[dir][0]); 
+      // select first file found 
+      if (Object.keys(this.gpxFiles).length) {
+        const dir = Object.keys(this.gpxFiles)[0];
+        this.selectFile(dir, this.gpxFiles[dir][0]); 
       }
     }
 }
 </script>
 
 <template>
-<ul v-if="files">
-  <li v-for="(files, dir) in files">
-    {{ dir }}
-    <ul v-if="files.length">
-      <li v-for="file of files">
-        <a href="#" @click="selectFile(dir, file)">{{ file }}</a>
+<div ref="map" class="map"></div>
+<div class="sidebar">
+  <div v-if="metadata">
+    <h2>{{ metadata.name }}</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th scope="row">Distance:</th>
+          <td>{{ metadata.distance }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Elevation:</th>
+          <td>{{ metadata.elevation }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Duration:</th>
+          <td>{{ metadata.duration }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <h2>Gpx files:</h2>
+    <ul v-if="gpxFiles">
+      <li v-for="(files, dir) in gpxFiles">
+        <b>{{ dir }}</b>
+        <ul v-if="files.length">
+          <li v-for="file of files">
+            <a href="#" @click="selectFile(dir, file)">{{ file }}</a>
+          </li>
+        </ul>
+        <br/>
       </li>
     </ul>
-  </li>
-</ul>
-<p v-else>no gpx tracks found in src/public/gpx</p>
-<div ref="map" style="width:100%; height: 100%;"></div>
+    <p v-else>no gpx tracks found in src/public/gpx</p>
+  </div>
+  </div>
 </template>
+<style>
+.map {
+  float: left;
+  width: 60%;
+  height: 100%;
+}
+.sidebar {
+  float: left;
+  width: 35%;
+  margin-left: 10px;
+}
+table {
+  table-layout: fixed;
+  border: none;
+  text-align: left;
+}
+ul {
+  list-style-type: square;
+  margin: 0;
+  padding: 0;
+}
+</style>
