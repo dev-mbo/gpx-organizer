@@ -8,6 +8,7 @@ const fs = require('node:fs');
 if (started) {
   app.quit();
 }
+const GPX_DIR = process.env.GPX_DIR ?? 'src/public/gpx';
 
 const createWindow = () => {
   // Create the browser window.
@@ -34,44 +35,12 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
-  const calculateDistance = (segments) => {
-    // each segment is a waypoint containing data for latitude, longitude, elevation and time 
-    const toRad = (value) => value * Math.PI / 180;
-    const getDistance = (start, end) => {
-      const dLat = toRad(end.lat - start.lat); 
-      const dLon = toRad(end.lon - start.lon); 
-      const startLat = toRad(start.lat);
-      const endLat = toRad(end.lat);
-
-      const a = Math.sin(dLat/2) ** 2 + Math.sin(dLon/2) ** 2 * Math.cos(startLat) * Math.cos(endLat);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-      return 6371000 * c; 
-    };
-    const distances = segments.map((curr, idx, arr) => {
-      if (idx == (arr.length - 1)) return 0;
-      return getDistance(curr, arr[idx+1]);
-    });
-    const total = distances.reduce((acc, distance) => acc + distance);
-    return (total / 1000).toFixed(2);
-  };
-  const calculateElevation = (segments) => {
-    const all = segments.map(waypoint => waypoint.time);
-    console.log(all); 
-  };
-  const calculateDuration = (segments) => {
-  };
-  
-  const getGpxFilesFromFolder = (folder = '') => {
-    const files = fs.readdirSync(path.join('src/public', folder), { withFileTypes: true });
-    let result = {};
+  const getGpxFilesFromFolder = (folder = '', result) => {
+    const files = fs.readdirSync(path.join(path.dirname(GPX_DIR), folder), { withFileTypes: true });
     result[folder] = [];
     for (const file of files) {
       if (file.isDirectory()) {
-        result = {
-          ...result, 
-          ...getGpxFilesFromFolder(path.join(folder, file.name))
-        };
+        getGpxFilesFromFolder(path.join(folder, file.name), result)
       } else {
         result[folder].push(file.name);
       }
@@ -79,25 +48,33 @@ app.on('ready', () => {
     return result;
   };
   ipcMain.handle('getFiles', () => {
-    const files = getGpxFilesFromFolder('gpx');
+    const files = { gpxDir: GPX_DIR, 'list': {}};
+    getGpxFilesFromFolder(path.basename(GPX_DIR), files.list);
+    console.log("found gpx files:");
+    console.dir(files);
     return files;
   });
-  ipcMain.handle('getMetadata', (event, file) => {
+  ipcMain.handle('getTrack', (event, file) => {
     const gpx = new gpxParser();
-    const data = fs.readFileSync(path.join('src/public', file));
+    const data = fs.readFileSync(path.join(path.dirname(GPX_DIR), file));
     gpx.parse(data);
-    const track = gpx.tracks[0];
-    if (!track) return false; 
-    const waypoints = track.points;
+    let waypoints = [];
+    gpx.tracks.forEach(track => {
+      waypoints = [...waypoints, ...track.points];
+    });
+    const distance = gpx.tracks.reduce((acc, curr) => acc += curr.distance.total, 0);
+    const elevation = gpx.tracks.reduce((acc, curr) => acc += curr.elevation.pos, 0);
+    if (!waypoints) return false;
     const duration = waypoints[waypoints.length-1].time - waypoints[0].time;
     const minutes = duration / 1000 / 60;
     const hours = parseInt(minutes / 60);
     const remainder = parseInt(minutes % 60);
     return {
-      name: track.name,
-      distance: `${(track.distance.total / 1000).toFixed(2)} km`,
-      elevation: `${track.elevation.pos.toFixed(2)} m`,
+      name: gpx.metadata.name,
+      distance: `${(distance / 1000).toFixed(2)} km`,
+      elevation: `${elevation.toFixed(2)} m`,
       duration: `${hours}h ${remainder}m`,
+      points: waypoints.map(({lon, lat}) => [lon, lat]),
     }
   });
   createWindow();

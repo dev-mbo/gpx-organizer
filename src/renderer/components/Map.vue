@@ -1,56 +1,58 @@
 <script>
-import {Map, View } from 'ol'
-import TileLayer from 'ol/layer/Tile'
-import VectorLayer from 'ol/layer/Vector'
-import VectorSource from 'ol/source/Vector'
-import OSM from 'ol/source/OSM'
-import GPX from 'ol/format/GPX'
+import {Map, View } from 'ol';
+import TileLayer from 'ol/layer/Tile';
+import VectorSource from 'ol/source/Vector';
+import VectorLayer from 'ol/layer/Vector';
+import LineString from 'ol/geom/LineString';
+import Feature from 'ol/Feature';
+import OSM from 'ol/source/OSM';
+import GPX from 'ol/format/GPX';
 import Stroke from 'ol/style/Stroke.js';
 import Style from 'ol/style/Style.js';
-import { transform } from 'ol/proj'
-import 'ol/ol.css'
+import { transform } from 'ol/proj';
+import 'ol/ol.css';
 
 export default {
     data() {
       return {
         gpxFiles: {},
         selectedFile: null,
-        metadata: false,
+        track: false,
         map: null,
         gpxLayer: null,
-        style: {
-          'MultiLineString': new Style({
-            stroke: new Stroke({
-              color: 'navy',
-              width: 4,
-            }),
-          }),
-        }
       }
     },
     methods: {
-      async getMetadata(file) {
-        this.metadata = await gpx.getMetadata(file);
-        console.log(this.metadata);
-      },
       async getFiles() {
 	      this.gpxFiles = await gpx.getFiles();
       },
       async selectFile(dir, file) {
-        this.selectedFile = dir + '/' + file;
         console.log(`select ${this.selectedFile}`);
+        this.selectedFile = dir + '/' + file;
+        this.track = await gpx.getTrack(this.selectedFile);
         if (this.gpxLayer) {
           this.map.removeLayer(this.gpxLayer);
         }
+        const route = new Feature({
+          type: 'route',
+          geometry: new LineString(this.track.points).transform('EPSG:4326', 'EPSG:3857')
+        });
+        route.setStyle(new Style({
+          stroke: new Stroke({
+            color: 'navy',
+            width: 4,
+          })
+        }));
+        const source = new VectorSource({
+          features: [
+            route
+          ],
+        });
         this.gpxLayer = new VectorLayer({
-          source: new VectorSource({
-            url: this.selectedFile,
-            format: new GPX()
-          }),
-          style: (feature) => this.style[feature.getGeometry().getType()]                   
+          source
         });
         this.map.addLayer(this.gpxLayer);
-        await this.getMetadata(this.selectedFile);
+        this.map.getView().fit(route.getGeometry().getExtent(), this.map.getSize());
       },
     },
     async mounted() {
@@ -70,8 +72,8 @@ export default {
       });
       // select first file found 
       if (Object.keys(this.gpxFiles).length) {
-        const dir = Object.keys(this.gpxFiles)[0];
-        this.selectFile(dir, this.gpxFiles[dir][0]); 
+        const dir = Object.keys(this.gpxFiles.list)[0];
+        this.selectFile(dir, this.gpxFiles.list[dir][0]); 
       }
     }
 }
@@ -80,29 +82,29 @@ export default {
 <template>
 <div ref="map" class="map"></div>
 <div class="sidebar">
-  <div v-if="metadata">
-    <h2>{{ metadata.name }}</h2>
+  <div v-if="track">
+    <h2>{{ track.name }}</h2>
     <table>
       <tbody>
         <tr>
           <th scope="row">Distance:</th>
-          <td>{{ metadata.distance }}</td>
+          <td>{{ track.distance }}</td>
         </tr>
         <tr>
           <th scope="row">Elevation:</th>
-          <td>{{ metadata.elevation }}</td>
+          <td>{{ track.elevation }}</td>
         </tr>
         <tr>
           <th scope="row">Duration:</th>
-          <td>{{ metadata.duration }}</td>
+          <td>{{ track.duration }}</td>
         </tr>
       </tbody>
     </table>
   </div>
   <div>
     <h2>Gpx files:</h2>
-    <ul v-if="gpxFiles">
-      <li v-for="(files, dir) in gpxFiles">
+    <ul v-if="gpxFiles.list">
+      <li v-for="(files, dir) in gpxFiles.list">
         <b>{{ dir }}</b>
         <ul v-if="files.length">
           <li v-for="file of files">
@@ -112,7 +114,7 @@ export default {
         <br/>
       </li>
     </ul>
-    <p v-else>no gpx tracks found in src/public/gpx</p>
+    <p v-else>no gpx tracks found in {{ gpxFiles['gpxDir'] }}</p>
   </div>
   </div>
 </template>
