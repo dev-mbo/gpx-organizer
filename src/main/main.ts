@@ -70,7 +70,7 @@ app.on('ready', () => {
     const hours = parseInt(minutes / 60);
     const remainder = parseInt(minutes % 60);
     return {
-      name: gpx.metadata.name,
+      name: gpx.metadata.name ?? path.basename(file),
       distance: `${(distance / 1000).toFixed(2)} km`,
       elevation: `${elevation.toFixed(2)} m`,
       duration: `${hours}h ${remainder}m`,

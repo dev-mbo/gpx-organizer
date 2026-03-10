@@ -70,10 +70,11 @@ export default {
           constrainResolution: true
         }),
       });
-      // select first file found 
-      if (Object.keys(this.gpxFiles).length) {
-        const dir = Object.keys(this.gpxFiles.list)[0];
-        this.selectFile(dir, this.gpxFiles.list[dir][0]); 
+      for (const dir in this.gpxFiles.list) {
+        if (this.gpxFiles.list[dir].length) {
+          this.selectFile(dir, this.gpxFiles.list[dir][0]);
+          break;
+        }
       }
     }
 }
