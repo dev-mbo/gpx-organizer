@@ -71,47 +71,8 @@ app.on('ready', () => {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return EARTH_RADIUS_IN_METERS * c;
   };
-  const parseGpx = (xmlStr) => {
-    return xml2js.parseStringPromise(xmlStr).then(xml => {
-      const waypoints = [];
-      for (const trk of xml.gpx.trk) {
-        for (const trkseg of trk['trkseg']) {
-          for (const wp of trkseg['trkpt']) {
-            const { lon, lat } = wp['$'];
-
-            const elevation = parseFloat(wp['ele']?.[0] ?? 0);
-            const time = new Date(wp['time']?.[0] ?? 0);
-            waypoints.push({ lon, lat, elevation, time })
-          }
-        }
-      }
-      let distance = 0;
-      let elevation = 0;
-      for (let i = 0; i < waypoints.length - 1; i++) {
-        const start = waypoints[i];
-        const end = waypoints[i+1];
-        distance += calculateDistance(start, end);
-        const elDiff = end.elevation - start.elevation;
-        if (elDiff > 0) {
-          elevation += elDiff; 
-        }
-      }
-      const duration = waypoints[waypoints.length-1].time - waypoints[0].time;
-      const minutes = duration / 1000 / 60;
-      const hours = parseInt(minutes / 60);
-      const remainder = parseInt(minutes % 60);
-      return {
-        name: xml.gpx.metadata?.[0].name?.[0] ?? '',
-        points: waypoints.map(({ lon, lat }) => [ lon, lat ]), 
-        distance: `${(distance / 1000).toFixed(2)}km`,
-        elevation: `${elevation.toFixed(2)}m`,
-        duration: `${hours}h ${remainder}m`,
-      }
-    }); 
-  };
   ipcMain.handle('getTrack', async (event, file) => {
     const xmlStr = fs.readFileSync(path.join(path.dirname(GPX_DIR), file), 'utf-8');
-    //const gpx = await parseGpx(data);
     const data = await xml2js.parseStringPromise(xmlStr).then(xml => {
       const waypoints = [];
       for (const trk of xml.gpx.trk) {
