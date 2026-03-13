@@ -1,8 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-const gpxParser = require('gpxparser');
-const fs = require('node:fs');
+import fs from 'node:fs';
+import xml2js from 'xml2js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -17,6 +17,7 @@ const createWindow = () => {
     height: 720,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      devTools: false,
     },
   });
 
@@ -54,28 +55,61 @@ app.on('ready', () => {
     console.dir(files);
     return files;
   });
-  ipcMain.handle('getTrack', (event, file) => {
-    const gpx = new gpxParser();
-    const data = fs.readFileSync(path.join(path.dirname(GPX_DIR), file));
-    gpx.parse(data);
-    let waypoints = [];
-    gpx.tracks.forEach(track => {
-      waypoints = [...waypoints, ...track.points];
-    });
-    const distance = gpx.tracks.reduce((acc, curr) => acc += curr.distance.total, 0);
-    const elevation = gpx.tracks.reduce((acc, curr) => acc += curr.elevation.pos, 0);
-    if (!waypoints) return false;
-    const duration = waypoints[waypoints.length-1].time - waypoints[0].time;
-    const minutes = duration / 1000 / 60;
-    const hours = parseInt(minutes / 60);
-    const remainder = parseInt(minutes % 60);
-    return {
-      name: gpx.metadata.name ?? path.basename(file),
-      distance: `${(distance / 1000).toFixed(2)} km`,
-      elevation: `${elevation.toFixed(2)} m`,
-      duration: `${hours}h ${remainder}m`,
-      points: waypoints.map(({lon, lat}) => [lon, lat]),
-    }
+  const calculateDistance = (start, end) => {
+    const EARTH_RADIUS_IN_METERS = 6371000;
+    const toRad = value => value * Math.PI / 180;
+
+    const dLat = toRad(end.lat - start.lat);
+    const dLon = toRad(end.lon - start.lon);
+    const startLat = toRad(start.lat);
+    const endLat = toRad(end.lat);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + 
+              Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(startLat) * Math.cos(endLat);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return EARTH_RADIUS_IN_METERS * c;
+  };
+  const parseGpx = (xmlStr) => {
+    return xml2js.parseStringPromise(xmlStr).then(xml => {
+      const waypoints = [];
+      for (const trk of xml.gpx.trk) {
+        for (const trkseg of trk['trkseg']) {
+          for (const wp of trkseg['trkpt']) {
+            const { lon, lat } = wp['$'];
+
+            const elevation = parseFloat(wp['ele']?.[0] ?? 0);
+            const time = new Date(wp['time']?.[0] ?? 0);
+            waypoints.push({ lon, lat, elevation, time })
+          }
+        }
+      }
+      let distance = 0;
+      let elevation = 0;
+      for (let i = 0; i < waypoints.length - 1; i++) {
+        const start = waypoints[i];
+        const end = waypoints[i+1];
+        distance += calculateDistance(start, end);
+        const elDiff = end.elevation - start.elevation;
+        if (elDiff > 0) {
+          elevation += elDiff; 
+        }
+      }
+      const duration = waypoints[waypoints.length-1].time - waypoints[0].time;
+      const minutes = duration / 1000 / 60;
+      const hours = parseInt(minutes / 60);
+      const remainder = parseInt(minutes % 60);
+      return {
+        name: xml.gpx.metadata?.[0].name?.[0] ?? '',
+        points: waypoints.map(({ lon, lat }) => [ lon, lat ]), 
+        distance: `${(distance / 1000).toFixed(2)}km`,
+        elevation: `${elevation.toFixed(2)}m`,
+        duration: `${hours}h ${remainder}m`,
+      }
+    }); 
+  };
+  ipcMain.handle('getTrack', async (event, file) => {
+    const data = fs.readFileSync(path.join(path.dirname(GPX_DIR), file), 'utf-8');
+    const gpx = await parseGpx(data);
+    return gpx;
   });
   createWindow();
 });

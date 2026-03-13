@@ -39,8 +39,8 @@
   },
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1",
-    "gpxparser": "^3.0.8",
     "ol": "^10.6.1",
-    "vue": "^3.5.17"
+    "vue": "^3.5.17",
+    "xml2js": "^0.6.2"
   }
 }
