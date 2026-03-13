@@ -41,7 +41,7 @@ app.on('ready', () => {
     for (const file of files) {
       if (file.isDirectory()) {
         getGpxFilesFromFolder(path.join(folder, file.name), result)
-      } else {
+      } else if (path.extname(file.name).toLowerCase() === '.gpx') {
         result[folder].push(file.name);
       }
     }

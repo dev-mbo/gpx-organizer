@@ -52,7 +52,7 @@ export default {
           source
         });
         this.map.addLayer(this.gpxLayer);
-        this.map.getView().fit(route.getGeometry().getExtent(), this.map.getSize());
+        this.map.getView().fit(route.getGeometry().getExtent(), { minResolution: 10 });
       },
     },
     async mounted() {
