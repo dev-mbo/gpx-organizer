@@ -8,7 +8,7 @@ import xml2js from 'xml2js';
 if (started) {
   app.quit();
 }
-const GPX_DIR = process.env.GPX_DIR ?? 'src/public/gpx';
+const GPX_DIR = process.env.GPX_DIR ?? process.cwd();
 
 const createWindow = () => {
   // Create the browser window.
@@ -38,11 +38,14 @@ const createWindow = () => {
 app.on('ready', () => {
   const getGpxFilesFromFolder = (folder = '', result) => {
     const files = fs.readdirSync(path.join(path.dirname(GPX_DIR), folder), { withFileTypes: true });
-    result[folder] = [];
+    //result[folder] = [];
     for (const file of files) {
       if (file.isDirectory()) {
         getGpxFilesFromFolder(path.join(folder, file.name), result)
       } else if (path.extname(file.name).toLowerCase() === '.gpx') {
+        if (!result[folder]) {
+          result[folder] = []
+        }
         result[folder].push(file.name);
       }
     }

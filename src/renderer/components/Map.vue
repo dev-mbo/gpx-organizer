@@ -104,7 +104,7 @@ export default {
   </div>
   <div>
     <h2>Gpx files:</h2>
-    <ul v-if="gpxFiles.list">
+    <ul v-if="selectedFile">
       <li v-for="(files, dir) in gpxFiles.list">
         <b>{{ dir }}</b>
         <ul v-if="files.length">
