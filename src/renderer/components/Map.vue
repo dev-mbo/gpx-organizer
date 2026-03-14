@@ -136,7 +136,7 @@ table {
   text-align: left;
 }
 ul {
-  list-style-type: square;
+  list-style-type: none;
   margin: 0;
   padding: 0;
 }
