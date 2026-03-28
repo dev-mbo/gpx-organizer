@@ -76,10 +76,10 @@ app.on('ready', () => {
     const data = await xml2js.parseStringPromise(xmlStr).then(xml => {
       const waypoints = [];
       for (const trk of xml.gpx.trk) {
+        if (typeof trk['trkseg'] === 'undefined') continue;
         for (const trkseg of trk['trkseg']) {
           for (const wp of trkseg['trkpt']) {
             const { lon, lat } = wp['$'];
-
             const elevation = parseFloat(wp['ele']?.[0] ?? 0);
             const time = new Date(wp['time']?.[0] ?? 0);
             waypoints.push({ lon, lat, elevation, time })
