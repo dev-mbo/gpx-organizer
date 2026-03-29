@@ -3,7 +3,7 @@ import {Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import VectorSource from 'ol/source/Vector';
 import VectorLayer from 'ol/layer/Vector';
-import LineString from 'ol/geom/LineString';
+import MultiLineString from 'ol/geom/MultiLineString';
 import Feature from 'ol/Feature';
 import OSM from 'ol/source/OSM';
 import GPX from 'ol/format/GPX';
@@ -35,7 +35,7 @@ export default {
         }
         const route = new Feature({
           type: 'route',
-          geometry: new LineString(this.track.points).transform('EPSG:4326', 'EPSG:3857')
+          geometry: new MultiLineString(this.track.points).transform('EPSG:4326', 'EPSG:3857')
         });
         route.setStyle(new Style({
           stroke: new Stroke({
