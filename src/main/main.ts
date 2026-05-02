@@ -95,9 +95,8 @@ app.on('ready', () => {
           const start = segment[i];
           const end = segment[i+1];
           distance += calculateDistance(start, end);
-          const elDiff = end.elevation - start.elevation;
-          if (elDiff > 0) {
-            elevation += elDiff; 
+          if (end.elevation > start.elevation) {
+            elevation += parseInt(end.elevation - start.elevation);
           }
         }
       }
@@ -111,7 +110,7 @@ app.on('ready', () => {
         name: xml.gpx.metadata?.[0].name?.[0] ?? path.basename(file),
         points: waypoints.map(seg => seg.map(({ lon, lat }) => [ lon, lat ])),
         distance: `${(distance / 1000).toFixed(2)}km`,
-        elevation: `${elevation.toFixed(2)}m`,
+        elevation: `${elevation}m`,
         duration: `${hours}h ${remainder}m`,
       }
     }); 
